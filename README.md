@@ -54,7 +54,7 @@ Download the latest production release archive (`termlog-mac.tar.gz`) from the *
 
 ```bash
 # Extract the binary
-tar -xzf termlog-mac.tar.gz
+tar -xzf termlog-{version}.tar.gz
 
 # Make it executable and route it to your local system binaries
 chmod +x termlog
