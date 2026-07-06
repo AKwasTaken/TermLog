@@ -1,4 +1,5 @@
-```text
+<div align="center">
+<pre>
                                                               .-'''-.              
                                                      .---.   '   _    \            
                __.....__              __  __   ___   |   | /   /` '.   \           
@@ -12,7 +13,8 @@
    |  '.'    `''-...... -'   | |                     '---'               ||     || 
    |   /                     |_|                                         \'. __//  
    `'-'                                                                   `'---'   
-```
+</pre>
+</div>
 
 A lightweight, zero-dependency session logger built specifically for macOS (`Terminal.app` and `iTerm2`). TermLog lets you capture, sanitize, and preserve your terminal workflows cleanly into individual log files across multiple terminal windows or tabs simultaneously.
 
