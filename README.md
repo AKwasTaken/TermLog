@@ -1,4 +1,18 @@
-# TermLog
+```text
+                                                              .-'''-.              
+                                                     .---.   '   _    \            
+               __.....__              __  __   ___   |   | /   /` '.   \           
+           .-''         '.           |  |/  `.'   `. |   |.   |     \  '  .--./)   
+     .|   /     .-''"'-.  `. .-,.--. |   .-.  .-.   '|   ||   '      |  '/.''\\    
+   .' |_ /     /________\   \|  .-. ||  |  |  |  |  ||   |\    \     / /| |  | |   
+ .'     ||                  || |  | ||  |  |  |  |  ||   | `.   ` ..' /  \`-' /    
+'--.  .-'\    .-------------'| |  | ||  |  |  |  |  ||   |    '-...-'`   /("'`     
+   |  |   \    '-.____...---.| |  '- |  |  |  |  |  ||   |               \ '---.   
+   |  |    `.             .' | |     |__|  |__|  |__||   |                /'""'.\  
+   |  '.'    `''-...... -'   | |                     '---'               ||     || 
+   |   /                     |_|                                         \'. __//  
+   `'-'                                                                   `'---'   
+```
 
 A lightweight, zero-dependency session logger built specifically for macOS (`Terminal.app` and `iTerm2`). TermLog lets you capture, sanitize, and preserve your terminal workflows cleanly into individual log files across multiple terminal windows or tabs simultaneously.
 
