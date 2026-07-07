@@ -11,6 +11,12 @@
 </pre>
 </div>
 
+<div align="center">
+<a href="https://www.codefactor.io/repository/github/akwastaken/termlog/overview/main"><img src="https://www.codefactor.io/repository/github/akwastaken/termlog/badge/main" alt="CodeFactor" /></a>
+</div><br>
+
+
+
 A lightweight, zero-dependency session logger built specifically for macOS (`Terminal.app` and `iTerm2`). TermLog lets you capture, sanitize, and preserve your terminal workflows cleanly into individual log files across multiple terminal windows or tabs simultaneously.
 
 ---
