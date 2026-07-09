@@ -174,3 +174,13 @@ Because the snapshot capture commands (`above` and `live`) read historical scrol
 ### 2. AppleScript Quirks inside iTerm2
 
 Due to native configuration boundaries inside iTerm2's automation surface, the `.contents` snapshot block will only scrape text fitting inside your current *visible view-port canvas bounding box* at that exact millisecond. Complete, deep-buffer historical snapshot recovery requires iTerm2's Python API, which will be evaluated in a later release.
+
+---
+
+## Currently working on:
+
+1. Option to ignore specific commands (like upgrade pip) from logging to the file
+2. Post-processed log (markdown conversion in real-time)
+3. Option to delete the last command from the log (incase of massive user-specific errors)
+4. Redacting sensitive information somehow, and replace them with [REDACTED]
+5. User option to auto-start for every new terminal session
