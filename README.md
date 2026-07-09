@@ -54,7 +54,7 @@ TermLog drops slow system polling models in favor of a low-level, event-driven h
 #### Option A: Homebrew Tap (Recommended)
 
 ```bash
-brew tap akwastaken/tap
+brew tap AKwasTaken/tap
 brew install termlog
 
 ```
@@ -64,7 +64,7 @@ Clone the repository workspace and compile the optimized production binary on yo
 
 ```bash
 # Clone the repository workspace
-git clone [https://github.com/akwastaken/termlog.git](https://github.com/akwastaken/termlog.git)
+git clone https://github.com/akwastaken/termlog.git
 cd termlog
 
 # Install GO (if you haven't already)
@@ -76,10 +76,8 @@ go build -ldflags="-s -w" -o termlog main.go
 # Install the binary into your system execution path
 chmod +x termlog
 sudo mv termlog /usr/local/bin/
-
 ```
 
----
 
 ### Step 2: One-Time Shell Integration
 
@@ -91,7 +89,64 @@ termlog install
 
 # Source your profile to activate the hooks in your current tab
 source ~/.zshrc
+```
 
+---
+
+
+## Uninstallation
+
+### Step 1: Quit the program
+
+```bash
+termlog quit
+
+# Force-quit all instances
+killall termlog 2>/dev/null || true
+```
+
+### Step 2: Remove the binary
+
+#### Homebrew
+
+```bash
+brew uninstall termlog
+brew untap AKwasTaken/tap
+```
+
+#### Compiled from source
+
+```bash
+sudo rm -f /usr/local/bin/termlog
+```
+
+
+### Step 3: Remove the residues
+
+```bash
+rm -rf ~/.termlog
+```
+
+### Step 4: Clean up zsh
+
+```bash
+# Remove Zsh Integration Hooks
+nano ~/.zshrc
+```
+
+Inside `~/.zshrc`, scroll to the bottom of the file and **delete** the following lines.
+
+```bash
+# >>> termlog integration >>>
+[ -f "~/.termlog/termlog.zsh" ] && source "~/.termlog/termlog.zsh"
+# <<< termlog integration <<<
+```
+
+### Step 5: Refresh the terminals
+
+```bash
+# Paste this in all active terminals
+source ~/.zshrc
 ```
 
 ---
