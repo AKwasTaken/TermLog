@@ -37,7 +37,9 @@ Unlike primitive solutions that modify your prompt or pollute your environment l
 
 TermLog drops slow system polling models in favor of a low-level, event-driven hybrid design:
 
-![Diagram](assets/diagram.svg)
+<div align="center">
+<img src="assets/diagram.svg" alt='Diagram'>
+</div>
 
 * **PTY Virtualization Layer:** When running `below` or `live`, TermLog spawns your interactive login shell inside a Pseudo-Terminal wrapper (`github.com/creack/pty`). It proxies raw bytes bidirectionally so interactive sub-apps (`vim`, `nano`, `top`), terminal resizing (`SIGWINCH`), and ANSI colors work natively.
 * **In-Band Marker Handshaking:** During shell setup, TermLog injects standard `preexec` and `precmd` tracking hooks into Zsh. These hooks emit invisible OSC boundary sequences (`\x1b]133;C\x07` and `\x1b]133;D\x07`) directly into the single ordered output stream. The parsing engine catches these byte markers to record exactly what you run and see.
