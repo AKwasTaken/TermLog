@@ -44,7 +44,7 @@ func main() {
 
 	// These commands need a terminal termlog actually supports. install/help/__hook are exempt: install just writes config files, __hook is only ever invoked from inside an already-running, already-validated session.
 	switch os.Args[1] {
-	case "above", "below", "live", "offline", "online", "status", "quit":
+	case "above", "below", "live", "offline", "online", "status", "mark", "quit":
 		if ok, name := termcheck.Supported(); !ok {
 			fmt.Fprintf(os.Stderr, "termlog: not supported in this terminal app (%s)\n", name)
 			fmt.Fprintln(os.Stderr, "termlog currently works in Terminal.app, iTerm2, and tmux only.")
@@ -68,9 +68,15 @@ func main() {
 		err = cmdControl("online")
 	case "status":
 		err = cmdStatus()
+	case "mark":
+		err = cmdMark(argOrEmpty(2))
 	case "install":
 		err = cmdInstall()
 	case "__hook":
+		if len(os.Args) < 3 {
+			usage()
+			os.Exit(1)
+		}
 		err = cmdHook(os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
@@ -94,17 +100,35 @@ func argOrEmpty(i int) string {
 }
 
 func usage() {
-	fmt.Println(`termlog - transparent terminal session logger
+	fmt.Println(`TermLog — Transparent Terminal Session Logger
+
+TermLog virtualizes your interactive shell via a low-level Pseudo-Terminal (PTY)
+wrapper and uses native Zsh lifecycle hooks with in-band OSC markers to record 
+exact command and output boundaries without altering terminal window layouts.
 
 Usage:
-  termlog above [file]   Dump scrollback so far to file (one-shot)
-  termlog live [file]    Dump scrollback, then record live from now on
-  termlog below [file]   Record live from now on (no scrollback dump)
-  termlog offline        Pause logging (session stays open)
-  termlog online         Resume logging
-  termlog status         Show current session state
-  termlog quit           Stop recording and end the session
-  termlog install        One-time zsh integration setup`)
+  termlog <command> [arguments]
+
+Core Logging Commands:
+  below [file]   Record live from this moment forward (skips past scrollback).
+  live [file]    Capture current scrollback window history, then record live.
+  above [file]   One-shot snapshot. Save all current scrollback history to a file.
+
+Session Management (Run from inside an active session):
+  status         Show current state (online/offline), target log file, and runtime.
+  offline        Pause recording. Sub-shell remains open, but logging appends stop.
+  online         Resume recording. Live tracking appends restart cleanly.
+  mark [label]   Inserts a visual divider line into both the terminal and log file.
+  quit           Stop recording, close control socket, and exit the wrapped shell.
+
+Configuration Commands:
+  install        Appends required Zsh integration hooks to your ~/.zshrc.
+  help           Show this documentation layout.
+
+Data Isolation & Storage:
+  • Global state files and UNIX domain sockets are kept in ~/.termlog/
+  • Sessions are deterministically isolated using a truncated SHA-1 hash of the active TTY node.
+  • Fullscreen alternate screen applications (e.g., vim, nano, top) are ignored during streams.`)
 }
 
 func cmdAbove(file string) error {
@@ -270,4 +294,27 @@ func resolveSock() (string, error) {
 		return "", fmt.Errorf("no active termlog session on this terminal")
 	}
 	return sock, nil
+}
+
+func cmdMark(label string) error {
+	sock, err := resolveSock()
+	if err != nil {
+		return err
+	}
+
+	divider := "=============================="
+	if label != "" {
+		divider = fmt.Sprintf("=========== %s ===========", label)
+	}
+
+	fmt.Printf("\n%s\n\n", divider)
+
+	resp, err := ipc.Send(sock, ipc.Request{Cmd: "mark", Arg: divider})
+	if err != nil {
+		return err
+	}
+	if !resp.OK {
+		return fmt.Errorf("%s", resp.Error)
+	}
+	return nil
 }

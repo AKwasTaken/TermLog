@@ -119,7 +119,3 @@ Because the snapshot capture commands (`above` and `live`) read historical scrol
 ### 2. AppleScript Quirks inside iTerm2
 
 Due to native configuration boundaries inside iTerm2's automation surface, the `.contents` snapshot block will only scrape text fitting inside your current *visible view-port canvas bounding box* at that exact millisecond. Complete, deep-buffer historical snapshot recovery requires iTerm2's Python API, which will be evaluated in a later release.
-
-### 3. Deleting Log Files Mid-Session
-
-If you delete your target `.log` file mid-session while a logging process is active, TermLog's appending write flags (`os.O_CREATE|os.O_APPEND`) will gracefully catch the event on the next command return, recreate a fresh log file automatically, and keep recording without throwing an error.

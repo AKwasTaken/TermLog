@@ -352,6 +352,18 @@ func (e *engine) handle(req ipc.Request) ipc.Response {
 		default:
 		}
 		return ipc.Response{OK: true}
+
+	case "mark":
+		e.mu.Lock()
+		online := e.state == session.Online
+		e.mu.Unlock()
+
+		if online {
+			e.mu.Lock()
+			fmt.Fprintf(e.logFile, "\n\n%s\n\n\n", req.Arg)
+			e.mu.Unlock()
+		}
+		return ipc.Response{OK: true}
 	}
 	return ipc.Response{OK: false, Error: "unknown command"}
 }
