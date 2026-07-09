@@ -68,10 +68,11 @@ TermLog can be installed via a custom Homebrew Tap. Because it is a self-publish
 brew tap AKwasTaken/tap
 
 # Grant explicit trust to the tap to bypass untrusted source errors
-brew trust AKwasTaken/tap
+brew trust akwastaken/tap
 
 # Install TermLog globally
 brew install termlog
+
 ```
 
 ### Method 2: Pre-Compiled Binary (Tarball)
@@ -79,6 +80,8 @@ brew install termlog
 If you prefer to use the production release assets directly, download the latest release archive (`termlog-{version}.tar.gz`) from the Releases tab and run:
 
 ```bash
+# Extract the production binary asset
+tar -xzf termlog-{version}.tar.gz
 # Extract the production binary asset
 tar -xzf termlog-{version}.tar.gz
 
@@ -106,10 +109,35 @@ sudo mv termlog /usr/local/bin/
 
 ---
 
-### macOS Security Permissions
+### Method 3: Compile From Source (Manual Build)
+
+If you wish to audit the codebase or optimize the executable compilation for your specific machine architecture, you can clone and build the binary manually using Go:
+
+```bash
+# Clone the repository workspace
+git clone https://github.com/AKwasTaken/TermLog.git
+cd termlog
+
+# Install GO using homebrew
+brew install go
+
+# Strip development debug symbols and compile a production binary
+go build -ldflags="-s -w" -o termlog project/*.go
+
+# Install the binary into your system path execution layers
+chmod +x termlog
+sudo mv termlog /usr/local/bin/
+
+```
+
+---
+
+### MacOS Security Requirements
 
 Because TermLog utilizes underlying system scraping APIs to log separate tab buffers seamlessly, macOS requires two specific user-side authorizations during its initial execution:
 
+1. **Automation Permissions:** The first time you execute an operational command (such as `termlog live` or `termlog below`), macOS will prompt you with a system modal requesting **Automation Permissions** so AppleScript can read window layout text arrays. You must click **OK** to authorize tracking.
+2. **Gatekeeper Quarantine Override:** If you install TermLog via the pre-compiled Tarball or manual Go compilation rather than Homebrew, macOS Gatekeeper may flag the binary as unsigned. Strip the isolation attributes once to allow it to run:
 1. **Automation Permissions:** The first time you execute an operational command (such as `termlog live` or `termlog below`), macOS will prompt you with a system modal requesting **Automation Permissions** so AppleScript can read window layout text arrays. You must click **OK** to authorize tracking.
 2. **Gatekeeper Quarantine Override:** If you install TermLog via the pre-compiled Tarball or manual Go compilation rather than Homebrew, macOS Gatekeeper may flag the binary as unsigned. Strip the isolation attributes once to allow it to run:
 

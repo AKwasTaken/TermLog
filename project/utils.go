@@ -10,49 +10,126 @@ import (
 	"time"
 )
 
-func getTerminalBufferMap() (map[string]string, error) {
-	script := `
-		var results = [];
-		var term = Application("Terminal");
-		for (var w = 0; w < term.windows.length; w++) {
-			var win = term.windows[w];
-			for (var t = 0; t < win.tabs.length; t++) {
-				var tab = win.tabs[t];
-				results.push(tab.history());
-			}
-		}
-		JSON.stringify(results);
-	`
+// Structural container to fetch counts from JXA cleanly
+type TabLineCount struct {
+	ID    string `json:"id"`
+	Count int    `json:"count"`
+}
+
+// Fetches a map of tab identifiers and their current absolute line lengths
+func getTerminalLineCounts() (map[string]int, error) {
+	termApp := os.Getenv("TERM_PROGRAM")
+	var script string
+
+	if termApp == "iTerm.app" {
+		script = `
+            var results = [];
+            var term = Application("iTerm2");
+            for (var w = 0; w < term.windows.length; w++) {
+                var win = term.windows[w];
+                for (var t = 0; t < win.tabs.length; t++) {
+                    var tab = win.tabs[t];
+                    for (var s = 0; s < tab.sessions.length; s++) {
+                        results.push({ id: "w"+w+"t"+t+"s"+s, count: tab.sessions[s].numberOfLines() });
+                    }
+                }
+            }
+            JSON.stringify(results);
+        `
+	} else {
+		script = `
+            var results = [];
+            var term = Application("Terminal");
+            for (var w = 0; w < term.windows.length; w++) {
+                var win = term.windows[w];
+                for (var t = 0; t < win.tabs.length; t++) {
+                    var tab = win.tabs[t];
+                    // Native terminal fallback calculation approximation
+                    var histLines = tab.history().split("\n").length;
+                    results.push({ id: "w"+w+"t"+t, count: histLines });
+                }
+            }
+            JSON.stringify(results);
+        `
+	}
+
 	cmd := exec.Command("osascript", "-l", "JavaScript", "-e", script)
 	output, err := cmd.Output()
 	if err != nil {
-		fallbackScript := `tell application "Terminal" to tell front window to tell selected tab to get history`
-		fallbackCmd := exec.Command("osascript", "-e", fallbackScript)
-		fallbackOut, fallbackErr := fallbackCmd.Output()
-		if fallbackErr == nil {
-			return map[string]string{"front": string(fallbackOut)}, nil
-		}
-		return nil, fmt.Errorf("AppleScript failed: %v", err)
+		return nil, err
 	}
 
-	var rawHistoryBlocks []string
-	_ = json.Unmarshal(output, &rawHistoryBlocks)
+	var counts []TabLineCount
+	_ = json.Unmarshal(output, &counts)
 
-	buffers := make(map[string]string)
-	for i, block := range rawHistoryBlocks {
-		buffers[fmt.Sprintf("tab_%d", i)] = block
+	resMap := make(map[string]int)
+	for _, item := range counts {
+		resMap[item.ID] = item.Count
 	}
-	return buffers, nil
+	return resMap, nil
 }
 
-func findActiveWindowAnchor(state *GlobalState) string {
-	script := `tell application "Terminal" to tell front window to tell selected tab to get history`
-	cmd := exec.Command("osascript", "-e", script)
-	output, err := cmd.Output()
-	if err != nil {
-		return ""
+// Pulls ONLY the delta range of text added between startLine and endLine indices
+func getTerminalDeltaText(tabID string, startLine int, endLine int) (string, error) {
+	termApp := os.Getenv("TERM_PROGRAM")
+	var script string
+
+	// Parse coordinates out of our compound tab ID token keys
+	if termApp == "iTerm.app" {
+		var w, t, s int
+		_, _ = fmt.Sscanf(tabID, "w%dt%ds%d", &w, &t, &s)
+
+		// iTerm JXA lets us read lines cleanly by setting starting and ending indices
+		script = fmt.Sprintf(`
+            var term = Application("iTerm2");
+            var session = term.windows[%d].tabs[%d].sessions[%d];
+            var totalLines = session.numberOfLines();
+            var outLines = [];
+            // Safe guard layout bounds checking
+            var end = Math.min(%d, totalLines);
+            for (var i = %d; i < end; i++) {
+                outLines.push(session.getLineAt({index: i}).text);
+            }
+            outLines.join("\n");
+        `, w, t, s, endLine, startLine)
+	} else {
+		var w, t int
+		_, _ = fmt.Sscanf(tabID, "w%dt%d", &w, &t)
+		script = fmt.Sprintf(`
+            var term = Application("Terminal");
+            var hist = term.windows[%d].tabs[%d].history();
+            var lines = hist.split("\n");
+            lines.slice(%d, %d).join("\n");
+        `, w, t, startLine, endLine)
 	}
 
+	cmd := exec.Command("osascript", "-l", "JavaScript", "-e", script)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
+}
+
+// Keep your existing working anchor and path helpers below unchanged
+func findActiveWindowAnchor(state *GlobalState) string {
+	termApp := os.Getenv("TERM_PROGRAM")
+	var script string
+	if termApp == "iTerm.app" {
+		script = `var term = Application("iTerm2"); term.currentWindow.currentSession.text();`
+	} else {
+		script = `tell application "Terminal" to tell front window to tell selected tab to get history`
+	}
+	cmd := exec.Command("osascript", "-l", "JavaScript", "-e", script)
+	output, err := cmd.Output()
+	if err != nil {
+		// Fallback context validation routing string
+		cmdApple := exec.Command("osascript", "-e", script)
+		output, err = cmdApple.Output()
+		if err != nil {
+			return ""
+		}
+	}
 	buffer := strings.ReplaceAll(string(output), "\r", "\n")
 	for anchor := range state.Sessions {
 		if strings.Contains(buffer, anchor) {
@@ -60,6 +137,28 @@ func findActiveWindowAnchor(state *GlobalState) string {
 		}
 	}
 	return ""
+}
+
+func getTerminalBufferMap() (map[string]string, error) {
+	termApp := os.Getenv("TERM_PROGRAM")
+	var script string
+	if termApp == "iTerm.app" {
+		script = `var results = []; var term = Application("iTerm2"); for (var w=0; w<term.windows.length; w++) { var win = term.windows[w]; for (var t=0; t<win.tabs.length; t++) { var tab = win.tabs[t]; for (var s=0; s<tab.sessions.length; s++) { results.push(tab.sessions[s].text()); } } } JSON.stringify(results);`
+	} else {
+		script = `var results = []; var term = Application("Terminal"); for (var w=0; w<term.windows.length; w++) { var win = term.windows[w]; for (var t=0; t<win.tabs.length; t++) { var tab = win.tabs[t]; results.push(tab.history()); } } JSON.stringify(results);`
+	}
+	cmd := exec.Command("osascript", "-l", "JavaScript", "-e", script)
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	var rawHistoryBlocks []string
+	_ = json.Unmarshal(output, &rawHistoryBlocks)
+	buffers := make(map[string]string)
+	for i, block := range rawHistoryBlocks {
+		buffers[fmt.Sprintf("tab_%d", i)] = block
+	}
+	return buffers, nil
 }
 
 func sanitizeOutput(text string) string {
@@ -78,7 +177,6 @@ func generateUniquePath(filename string) string {
 	absPath, _ := filepath.Abs(filename)
 	base := strings.TrimSuffix(absPath, filepath.Ext(absPath))
 	ext := filepath.Ext(absPath)
-
 	counter := 1
 	finalPath := absPath
 	for {
@@ -100,7 +198,6 @@ func startDaemonWorker() int {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	cmd.Stdin = nil
-
 	err = cmd.Start()
 	if err == nil && cmd.Process != nil {
 		pid := cmd.Process.Pid
@@ -123,9 +220,6 @@ func loadGlobalState(path string) GlobalState {
 		return state
 	}
 	_ = json.Unmarshal(file, &state)
-	if state.Sessions == nil {
-		state.Sessions = make(map[string]*TerminalSession)
-	}
 	return state
 }
 

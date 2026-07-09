@@ -19,14 +19,15 @@ const (
 )
 
 type TerminalSession struct {
-	Mode         LogMode   `json:"mode"`
-	IsOnline     bool      `json:"is_online"`
-	OutputFile   string    `json:"output_file"`
-	PID          int       `json:"pid"`
-	TerminalType string    `json:"terminal_type"`
-	AnchorMarker string    `json:"anchor_marker"`
-	HistoryCache string    `json:"history_cache,omitempty"`
-	LastUpdated  time.Time `json:"last_updated"`
+	Mode          LogMode   `json:"mode"`
+	IsOnline      bool      `json:"is_online"`
+	OutputFile    string    `json:"output_file"`
+	PID           int       `json:"pid"`
+	TerminalType  string    `json:"terminal_type"`
+	AnchorMarker  string    `json:"anchor_marker"`
+	HistoryCache  string    `json:"history_cache,omitempty"`
+	LastLineCount int       `json:"last_line_count"` // Tracks the last processed line position
+	LastUpdated   time.Time `json:"last_updated"`
 }
 
 type GlobalState struct {

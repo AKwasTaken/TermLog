@@ -52,14 +52,20 @@ func handleBelow(state *GlobalState, filename string) {
 func handleLive(state *GlobalState, filename string) {
 	targetFile := generateUniquePath(filename)
 	milestoneToken := fmt.Sprintf("##marker_%d##", time.Now().UnixNano())
-
 	termApp := os.Getenv("TERM_PROGRAM")
-	if termApp == "" {
-		termApp = "Apple_Terminal"
+
+	// Dynamic buffer capture path utilizing our smart JXA script engine logic
+	var script string
+	var cmd *exec.Cmd
+
+	if termApp == "iTerm.app" {
+		script = `var term = Application("iTerm2"); term.currentWindow.currentSession.text();`
+		cmd = exec.Command("osascript", "-l", "JavaScript", "-e", script)
+	} else {
+		script = `tell application "Terminal" to tell front window to tell selected tab to get history`
+		cmd = exec.Command("osascript", "-e", script)
 	}
 
-	script := `tell application "Terminal" to tell front window to tell selected tab to get history`
-	cmd := exec.Command("osascript", "-e", script)
 	output, _ := cmd.Output()
 
 	normalizedOldBuffer := strings.ReplaceAll(string(output), "\r", "\n")
@@ -73,15 +79,24 @@ func handleLive(state *GlobalState, filename string) {
 
 	pid := startDaemonWorker()
 
+	initialCounts, _ := getTerminalLineCounts()
+	var startingLines int
+	for _, count := range initialCounts {
+		if count > startingLines {
+			startingLines = count
+		}
+	}
+
 	state.Sessions[milestoneToken] = &TerminalSession{
-		Mode:         ModeLive,
-		IsOnline:     true,
-		OutputFile:   targetFile,
-		PID:          pid,
-		TerminalType: termApp,
-		AnchorMarker: milestoneToken,
-		HistoryCache: cleanOldBuffer,
-		LastUpdated:  time.Now(),
+		Mode:          ModeLive,
+		IsOnline:      true,
+		OutputFile:    targetFile,
+		PID:           pid,
+		TerminalType:  termApp,
+		AnchorMarker:  milestoneToken,
+		HistoryCache:  cleanOldBuffer,
+		LastLineCount: startingLines, // Set initial delta boundary checkpoint marker
+		LastUpdated:   time.Now(),
 	}
 }
 
