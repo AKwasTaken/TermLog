@@ -16,115 +16,62 @@
 </div><br>
 
 
+A lightweight, high-performance terminal session logger built in Go for macOS and Linux (`Terminal.app`, `iTerm2`, and `tmux`). TermLog transparently intercepts, sanitizes, and preserves your command-line workflows directly into individual log files across multiple terminal windows or tabs simultaneously without changing your terminal behavior.
 
-A lightweight, zero-dependency session logger built specifically for macOS (`Terminal.app` and `iTerm2`). TermLog lets you capture, sanitize, and preserve your terminal workflows cleanly into individual log files across multiple terminal windows or tabs simultaneously.
+Unlike primitive solutions that modify your prompt or pollute your environment layout, TermLog virtualizes your shell at the system level—leaving you with full character editing, text pasting, and layout stability.
 
 ---
 
 ## Implemented Features
 
-* **Live Logging (`live`):** Captures your entire current window history and seamlessly streams future commands into a file.
-* **Point-Forward Logging (`below`):** Starts a clean logging session from the exact moment you run the command.
-* **Instant Snapshot (`above`):** Dumps your entire current scrollback history into a file on demand.
-* **Zero UI Noise:** Advanced regex layers strip out raw ANSI color escape sequences, arrow key artifacts, and terminal spatial trailing gaps.
-* **Seamless Multi-Terminal Mapping:** Automatically maps concurrent logs to separate files across multiple tabs using dynamic, screen-anchored session trackers. No manual session environment variables required.
-* **On-the-Fly Control States (`offline`/`online`):** Temporarily pause and resume logging chronologically inside your terminal timeline.
+* **Live Logging (`live`):** Seamlessly captures your entire current window scrollback history and appends future commands/outputs into a single log file in real time.
+* **Point-Forward Logging (`below`):** Starts a clean logging session from the exact moment you execute the command (skipping past scrollback history).
+* **Instant Snapshot (`above`):** One-shot export that dumps your entire current scrollback history into a file on demand.
+* **In-Band Boundary Tracking:** Uses invisible OSC marker sequences passed through the PTY channel to calculate exact command/output boundary shifts—eliminating race conditions and missing bytes.
+* **Deterministic Tab Isolation:** Automatically isolates concurrent logging sessions across multiple tabs and windows by mapping control processes to the terminal's unique device node (`/dev/tty`).
+* **On-the-Fly Control States (`offline`/`online`):** Temporarily pause and resume logging chronologically within an open shell timeline.
 
 ---
 
-## Core Architecture & Performance Optimizations
+## Core Architecture & Engineering
 
-* **High-Performance Go Engine:** Written entirely in GO and aggressively optimized for minimal system impact.
-* **Memory-Leak Free Design:** While the daemon takes an interface snapshot every second, it bypasses internal heap allocation traps by pre-compiling matching expressions globally and enforcing synchronous file descriptor recycling.
-* **Centralized JSON State Machine:** A single state database file (`~/.termlog_state.json`) acts as a localized shared registry. Active background processes poll this configuration concurrently to cross-reference terminal session anchor keys against active tracking profiles.
+TermLog drops slow system polling models in favor of a low-level, event-driven hybrid design:
 
----
+![Diagram](assets/diagram.svg)
 
-## Security & Safe-Tracking Guardrails
-
-* **Zero Password Exposure:** TermLog scrapes visible screen text history buffers. Secure input fields (such as `sudo` or SSH password entries) do not echo characters to the terminal UI canvas, meaning sensitive password strings never hit your log files.
-* **Interactive App Boundary:** Fullscreen alternate screen applications (like `nano`, `vim`, or `top`) do not feed into standard scrollback updates during streaming sessions. Standard sequential tracking automatically resumes the moment you exit back to the main shell workspace.
-
----
-
-## Current Limitations
-
-* **App Boundaries:** Relies on AppleScript UI-Automation hooks. This means it is natively bound to macOS `Terminal.app` and `iTerm2.app`.
-* **VS Code / Integrated Panels:** Does not natively capture text inside Electron-based built-in terminals (like VS Code or Cursor). For integrated workflows, external workspace splits using `iTerm2` or native terminal tabs are required.
-* **Polling Rate:** Operates on a tight 1-second asynchronous scraping interval.
+* **PTY Virtualization Layer:** When running `below` or `live`, TermLog spawns your interactive login shell inside a Pseudo-Terminal wrapper (`github.com/creack/pty`). It proxies raw bytes bidirectionally so interactive sub-apps (`vim`, `nano`, `top`), terminal resizing (`SIGWINCH`), and ANSI colors work natively.
+* **In-Band Marker Handshaking:** During shell setup, TermLog injects standard `preexec` and `precmd` tracking hooks into Zsh. These hooks emit invisible OSC boundary sequences (`\x1b]133;C\x07` and `\x1b]133;D\x07`) directly into the single ordered output stream. The parsing engine catches these byte markers to record exactly what you run and see.
+* **JSON IPC Protocol over UNIX Sockets:** A localized socket instance (`~/.termlog/sockets/{tty_hash}.sock`) hosts an internal JSON IPC service. Utility commands (`status`, `offline`, `quit`) communicate instantly with your active background PTY manager across isolation boundaries.
 
 ---
 
 ## Installation & Setup
 
-Choose one of the three deployment methods below to install TermLog on your system.
+### Step 1: Install the Binary
 
-### Method 1: Homebrew Tap (Recommended)
-
-TermLog can be installed via a custom Homebrew Tap. Because it is a self-published formula, Homebrew requires you to explicitly grant a trust permission to the tap before installation:
+#### Option A: Homebrew Tap (Recommended)
 
 ```bash
-# Add the custom repository tap
-brew tap AKwasTaken/tap
-
-# Grant explicit trust to the tap to bypass untrusted source errors
-brew trust akwastaken/tap
-
-# Install TermLog globally
+brew tap akwastaken/tap
 brew install termlog
 
 ```
 
-### Method 2: Pre-Compiled Binary (Tarball)
-
-If you prefer to use the production release assets directly, download the latest release archive (`termlog-{version}.tar.gz`) from the Releases tab and run:
-
-```bash
-# Extract the production binary asset
-tar -xzf termlog-{version}.tar.gz
-# Extract the production binary asset
-tar -xzf termlog-{version}.tar.gz
-
-# Make it executable and route it to your local system binaries
-chmod +x termlog
-sudo mv termlog /usr/local/bin/
-```
-
-### Method 3: Compile From Source (Manual Build)
-
-If you wish to audit the codebase or optimize the executable compilation for your specific machine architecture, you can clone and build the binary manually using Go:
+#### Option B: Compile From Source (Advanced)
+Clone the repository workspace and compile the optimized production binary on your native architecture using Go:
 
 ```bash
 # Clone the repository workspace
-git clone https://github.com/AKwasTaken/termlog.git
+git clone [https://github.com/akwastaken/termlog.git](https://github.com/akwastaken/termlog.git)
 cd termlog
 
-# Strip development debug symbols and compile a highly optimized production binary
-go build -ldflags="-s -w" -o termlog *.go
-
-# Install the binary into your system path execution layers
-chmod +x termlog
-sudo mv termlog /usr/local/bin/
-```
-
----
-
-### Method 3: Compile From Source (Manual Build)
-
-If you wish to audit the codebase or optimize the executable compilation for your specific machine architecture, you can clone and build the binary manually using Go:
-
-```bash
-# Clone the repository workspace
-git clone https://github.com/AKwasTaken/TermLog.git
-cd termlog
-
-# Install GO using homebrew
+# Install GO (if you haven't already)
 brew install go
 
-# Strip development debug symbols and compile a production binary
-go build -ldflags="-s -w" -o termlog project/*.go
+# Compile a production binary
+go build -ldflags="-s -w" -o termlog main.go
 
-# Install the binary into your system path execution layers
+# Install the binary into your system execution path
 chmod +x termlog
 sudo mv termlog /usr/local/bin/
 
@@ -132,17 +79,17 @@ sudo mv termlog /usr/local/bin/
 
 ---
 
-### MacOS Security Requirements
+### Step 2: One-Time Shell Integration
 
-Because TermLog utilizes underlying system scraping APIs to log separate tab buffers seamlessly, macOS requires two specific user-side authorizations during its initial execution:
-
-1. **Automation Permissions:** The first time you execute an operational command (such as `termlog live` or `termlog below`), macOS will prompt you with a system modal requesting **Automation Permissions** so AppleScript can read window layout text arrays. You must click **OK** to authorize tracking.
-2. **Gatekeeper Quarantine Override:** If you install TermLog via the pre-compiled Tarball or manual Go compilation rather than Homebrew, macOS Gatekeeper may flag the binary as unsigned. Strip the isolation attributes once to allow it to run:
-1. **Automation Permissions:** The first time you execute an operational command (such as `termlog live` or `termlog below`), macOS will prompt you with a system modal requesting **Automation Permissions** so AppleScript can read window layout text arrays. You must click **OK** to authorize tracking.
-2. **Gatekeeper Quarantine Override:** If you install TermLog via the pre-compiled Tarball or manual Go compilation rather than Homebrew, macOS Gatekeeper may flag the binary as unsigned. Strip the isolation attributes once to allow it to run:
+To allow TermLog to pass tracking markers through the PTY stream cleanly, install the Zsh hooks into your profile:
 
 ```bash
-sudo xattr -dr com.apple.quarantine /usr/local/bin/termlog
+# Append the integration block to your config profile automatically
+termlog install
+
+# Source your profile to activate the hooks in your current tab
+source ~/.zshrc
+
 ```
 
 ---
@@ -151,28 +98,26 @@ sudo xattr -dr com.apple.quarantine /usr/local/bin/termlog
 
 | Command | Usage | Description |
 | --- | --- | --- |
-| **Log From Below** | `termlog below {filename}` | Starts recording everything *after* this prompt. |
-| **Log Snapshot** | `termlog above {filename}` | Captures a static export of your *past* history up to this point. |
-| **Live Tracking** | `termlog live {filename}` | Combines both: grabs past history and tracks all future inputs live. |
-| **Pause Logging** | `termlog offline` | Temporarily halts logging. Your past logs stay perfectly intact. |
-| **Resume Logging** | `termlog online` | Resumes live tracking cleanly with a formatted timeline indicator. |
-| **Session Status** | `termlog status` | Displays current mode, active state (`online`/`offline`), and absolute file path. |
-| **Stop Engine** | `termlog quit` | Shuts down the background session logging process for this tab. |
+| **Log From Below** | `termlog below {optional: file}` | Starts recording everything *after* this prompt. |
+| **Log Snapshot** | `termlog above {optional: file}` | Captures a static export of your *past* history up to this point. |
+| **Live Tracking** | `termlog live {optional: file}` | Combines both: grabs past history and tracks all future inputs live. |
+| **Pause Logging** | `termlog offline` | Temporarily halts logging. Your active sub-shell remains open. |
+| **Resume Logging** | `termlog online` | Resumes live tracking appends cleanly. |
+| **Session Status** | `termlog status` | Displays active mode, state (`online`/`offline`), target file, and tracking start time. |
+| **Stop Engine** | `termlog quit` | Terminates the background PTY loop and resumes the root shell context. |
 
 ---
 
-## Future Roadmap
+## Troubleshooting & Constraints
 
-The current implementation uses a localized macOS automation layout, but the architectural master plan is to migrate TermLog into a low-level cross-platform core application. Future upgrades include:
+### 1. macOS Automation Requirements
 
-### Core Engineering Rewrite
+Because the snapshot capture commands (`above` and `live`) read historical scrollback bounds via AppleScript/JXA, macOS requires a system-level authorization step. The first time you execute a snapshot command, macOS will prompt you with a dialog requesting **Automation Permissions**. You must click **OK** to authorize history gathering.
 
-* Shift from AppleScript buffer-scraping to a low-level native **Pseudo-Terminal (PTY) wrapper system**. This will make TermLog completely cross-platform (Linux/macOS) and allow it to run flawlessly inside **VS Code integrated terminals** and remote SSH loops.
-* **Shell Auto-Start:** Optional automatic daemon initialization for every new terminal shell session via `.zshrc`/`.bashrc` integration. Never lose a terminal history log because you forgot to turn it on manually.
+### 2. AppleScript Quirks inside iTerm2
 
-### Real-Time Log Processing
+Due to native configuration boundaries inside iTerm2's automation surface, the `.contents` snapshot block will only scrape text fitting inside your current *visible view-port canvas bounding box* at that exact millisecond. Complete, deep-buffer historical snapshot recovery requires iTerm2's Python API, which will be evaluated in a later release.
 
-* **Real-time Markdown Conversion:** Automatically format terminal outputs to clean markdown structural code fences.
-* **Sensitive Data Redaction:** Automatically scan inputs/outputs for passwords, keys, and tokens, replacing them with customizable `[REDACTED]` markers (`termlog redaction --status online --msg "SECRET"`).
-* **Smart Content Deletion (`termlog rm`):** Drop the last executed command block or target specific noise strings (like `pip install --upgrade`) from the active log history completely.
-* **Global Blacklist Filters:** Command formatting options to completely skip recording administrative or background noise commands (`termlog blacklist {cmd}`).
+### 3. Deleting Log Files Mid-Session
+
+If you delete your target `.log` file mid-session while a logging process is active, TermLog's appending write flags (`os.O_CREATE|os.O_APPEND`) will gracefully catch the event on the next command return, recreate a fresh log file automatically, and keep recording without throwing an error.
