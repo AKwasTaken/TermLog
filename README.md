@@ -6,46 +6,43 @@
    ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║     ██║   ██║██║   ██║
    ██║   ███████╗██║  ██║██║ ╚═╝ ██║███████╗╚██████╔╝╚██████╔╝
    ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚═════╝  ╚═════╝ 
-                                                              
-
 </pre>
 </div>
 
 <div align="center">
-<a href="https://www.codefactor.io/repository/github/akwastaken/termlog/overview/main"><img src="https://www.codefactor.io/repository/github/akwastaken/termlog/badge/main" alt="CodeFactor" /></a>
+<img src='https://img.shields.io/badge/Status-Deprecated-red'></img>
+<img src='https://img.shields.io/badge/License-MIT-yellow'></img>
 </div><br>
 
-
-A lightweight, high-performance terminal session logger built in Go for macOS and Linux (`Terminal.app`, `iTerm2`, and `tmux`). TermLog transparently intercepts, sanitizes, and preserves your command-line workflows directly into individual log files across multiple terminal windows or tabs simultaneously without changing your terminal behavior.
-
-Unlike primitive solutions that modify your prompt or pollute your environment layout, TermLog virtualizes your shell at the system level—leaving you with full character editing, text pasting, and layout stability.
-
----
-
-## Implemented Features
-
-* **Live Logging (`live`):** Seamlessly captures your entire current window scrollback history and appends future commands/outputs into a single log file in real time.
-* **Point-Forward Logging (`below`):** Starts a clean logging session from the exact moment you execute the command (skipping past scrollback history).
-* **Instant Snapshot (`above`):** One-shot export that dumps your entire current scrollback history into a file on demand.
-* **In-Band Boundary Tracking:** Uses invisible OSC marker sequences passed through the PTY channel to calculate exact command/output boundary shifts—eliminating race conditions and missing bytes.
-* **Deterministic Tab Isolation:** Automatically isolates concurrent logging sessions across multiple tabs and windows by mapping control processes to the terminal's unique device node (`/dev/tty`).
-* **On-the-Fly Control States (`offline`/`online`):** Temporarily pause and resume logging chronologically within an open shell timeline.
+> **This project is deprecated and no longer maintained.** The repository is archived: it remains readable, but no issues or pull requests are accepted.
+>
+> The code works for the features listed below, but I stopped developing it because it grew beyond what I had time to maintain. If you need something similar and actively maintained, search for terminal session recorders such as `asciinema` or `script`.
+>
+> If you installed TermLog, see [Uninstallation](#uninstallation) to remove the shell hooks and binary.
 
 ---
 
-## Core Architecture & Engineering
+## What it did
 
-TermLog drops slow system polling models in favor of a low-level, event-driven hybrid design:
+* **Live logging (`live`):** captured the current window's scrollback and appended future commands and output to one log file.
+* **Point-forward logging (`below`):** started a clean session from the moment the command ran.
+* **Snapshot (`above`):** exported the current scrollback to a file on demand.
+* **In-band boundary tracking:** used invisible OSC markers in the PTY stream to find command and output boundaries.
+* **Per-tab isolation:** kept concurrent sessions across tabs and windows separate, keyed on the terminal's device node.
+* **Pause and resume (`offline`/`online`):** paused and resumed logging within an open shell.
 
-<div align="center">
-<img src="assets/diagram.svg" alt='Diagram'>
-</div>
+## How it worked
 
-* **PTY Virtualization Layer:** When running `below` or `live`, TermLog spawns your interactive login shell inside a Pseudo-Terminal wrapper (`github.com/creack/pty`). It proxies raw bytes bidirectionally so interactive sub-apps (`vim`, `nano`, `top`), terminal resizing (`SIGWINCH`), and ANSI colors work natively.
-* **In-Band Marker Handshaking:** During shell setup, TermLog injects standard `preexec` and `precmd` tracking hooks into Zsh. These hooks emit invisible OSC boundary sequences (`\x1b]133;C\x07` and `\x1b]133;D\x07`) directly into the single ordered output stream. The parsing engine catches these byte markers to record exactly what you run and see.
-* **JSON IPC Protocol over UNIX Sockets:** A localized socket instance (`~/.termlog/sockets/{tty_hash}.sock`) hosts an internal JSON IPC service. Utility commands (`status`, `offline`, `quit`) communicate instantly with your active background PTY manager across isolation boundaries.
+TermLog ran your login shell inside a pseudo-terminal wrapper (`github.com/creack/pty`) and proxied bytes in both directions, so interactive programs, terminal resizing, and colors kept working. It added `preexec` and `precmd` hooks to Zsh that emitted OSC 133 markers. A local UNIX socket at `~/.termlog/sockets/` carried JSON commands such as `status`, `offline`, and `quit`.
+
+## Known limitations
+
+* Snapshot capture (`above` and `live`) read the terminal through AppleScript/JXA, so macOS asked for Automation permission on first use.
+* In iTerm2, snapshots only captured the text visible in the current viewport. Full scrollback needed iTerm2's Python API, which was never implemented.
+
 
 ---
+
 
 ## Installation & Setup
 
@@ -93,48 +90,41 @@ source ~/.zshrc
 
 ---
 
-
 ## Uninstallation
 
-### Step 1: Quit the program
+### 1. Quit the program
 
 ```bash
 termlog quit
 
-# Force-quit all instances
+# Force-quit any remaining instances
 killall termlog 2>/dev/null || true
 ```
 
-### Step 2: Remove the binary
+### 2. Remove the binary
 
-#### Homebrew
+Homebrew:
 
 ```bash
 brew uninstall termlog
 brew untap AKwasTaken/tap
 ```
 
-#### Compiled from source
+Compiled from source:
 
 ```bash
 sudo rm -f /usr/local/bin/termlog
 ```
 
-
-### Step 3: Remove the residues
+### 3. Remove the leftover files
 
 ```bash
 rm -rf ~/.termlog
 ```
 
-### Step 4: Clean up zsh
+### 4. Remove the Zsh hooks
 
-```bash
-# Remove Zsh Integration Hooks
-nano ~/.zshrc
-```
-
-Inside `~/.zshrc`, scroll to the bottom of the file and **delete** the following lines.
+Open `~/.zshrc` and delete this block, which is at the bottom of the file:
 
 ```bash
 # >>> termlog integration >>>
@@ -142,45 +132,26 @@ Inside `~/.zshrc`, scroll to the bottom of the file and **delete** the following
 # <<< termlog integration <<<
 ```
 
-### Step 5: Refresh the terminals
+### 5. Reload your shell
 
 ```bash
-# Paste this in all active terminals
 source ~/.zshrc
 ```
 
 ---
 
-## Command Reference
+## Command reference (historical)
 
 | Command | Usage | Description |
 | --- | --- | --- |
-| **Log From Below** | `termlog below {optional: file}` | Starts recording everything *after* this prompt. |
-| **Log Snapshot** | `termlog above {optional: file}` | Captures a static export of your *past* history up to this point. |
-| **Live Tracking** | `termlog live {optional: file}` | Combines both: grabs past history and tracks all future inputs live. |
-| **Pause Logging** | `termlog offline` | Temporarily halts logging. Your active sub-shell remains open. |
-| **Resume Logging** | `termlog online` | Resumes live tracking appends cleanly. |
-| **Session Status** | `termlog status` | Displays active mode, state (`online`/`offline`), target file, and tracking start time. |
-| **Stop Engine** | `termlog quit` | Terminates the background PTY loop and resumes the root shell context. |
+| Log from below | `termlog below [file]` | Records everything after this prompt. |
+| Snapshot | `termlog above [file]` | Exports past history up to this point. |
+| Live tracking | `termlog live [file]` | Exports past history and tracks future input. |
+| Pause | `termlog offline` | Pauses logging. The shell stays open. |
+| Resume | `termlog online` | Resumes logging. |
+| Status | `termlog status` | Shows mode, state, target file, and start time. |
+| Stop | `termlog quit` | Stops the background loop. |
 
----
+## License
 
-## Troubleshooting & Constraints
-
-### 1. macOS Automation Requirements
-
-Because the snapshot capture commands (`above` and `live`) read historical scrollback bounds via AppleScript/JXA, macOS requires a system-level authorization step. The first time you execute a snapshot command, macOS will prompt you with a dialog requesting **Automation Permissions**. You must click **OK** to authorize history gathering.
-
-### 2. AppleScript Quirks inside iTerm2
-
-Due to native configuration boundaries inside iTerm2's automation surface, the `.contents` snapshot block will only scrape text fitting inside your current *visible view-port canvas bounding box* at that exact millisecond. Complete, deep-buffer historical snapshot recovery requires iTerm2's Python API, which will be evaluated in a later release.
-
----
-
-## Currently working on:
-
-1. Option to ignore specific commands (like upgrade pip) from logging to the file
-2. Post-processed log (markdown conversion in real-time)
-3. Option to delete the last command from the log (incase of massive user-specific errors)
-4. Redacting sensitive information somehow, and replace them with [REDACTED]
-5. User option to auto-start for every new terminal session
+MIT
